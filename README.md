@@ -1,5 +1,4 @@
-#Instamart Customer Intelligence & Support Copilot
-
+# Instamart Customer Intelligence & Support Copilot
 ## Part A: Data Cleaning, SQL, and Pandas Analysis
 
 This project implements a reproducible data-cleaning and analysis pipeline for Instamart customer, product, and order data. It includes raw-data auditing, data cleaning, SQLite database creation, seven SQL analyses, pandas-based analysis, and automated validation.
@@ -31,6 +30,9 @@ instamart-copilot/
 │   ├── raw_data_audit.py
 │   ├── clean_data.py
 │   ├── create_database.py
+│   ├── cleaning_investigation.py
+│   ├── detailed_audit.py
+│   └── part_a.py
 │   ├── run_sql.py
 │   ├── pandas_analysis.py
 │   └── validate_cleaning.py
