@@ -1,6 +1,6 @@
 # Overview
 
-This project implements an end-to-end Instamart customer analytics and support copilot across four parts:
+This project implements an end-to-end Instamart Customer Intelligence and Support Copilot across four parts:
 
 - **Part A – Data cleaning and SQL analysis:** audit and clean customer, order, and product data; create a SQLite database; and perform SQL and pandas analysis.
 - **Part B – Customer analytics and lapse prediction:** build RFM features, segment customers, and train models to predict customer lapse.
@@ -11,7 +11,7 @@ The project uses Python, pandas, SQLite, scikit-learn, TF-IDF retrieval, and the
 
 The supplied `generate_data.py` and `mock_llm.py` are included at the repository root and are used without modification.
 
-## Repository structure
+### Repository structure
 
 ```text
 instamart-copilot/
@@ -51,13 +51,11 @@ instamart-copilot/
 
 Generated CSV files, evaluation results, model files, logs, and checkpoints are stored in `data/`, `outputs/`, and `state/`.
 
-## Reproduce
+# Reproduce
 
 The following commands are written for Windows Command Prompt. Run them from the repository root, in the order shown.
 
 ### 1. Clone the repository and set up Python
-
-Replace the repository URL below with the public GitHub repository URL.
 
 ```cmd
 git clone https://github.com/hociga2911-wq/instamart-copilot.git
@@ -151,7 +149,9 @@ This script performs PII redaction, input guardrails, zero-shot and few-shot cla
 
 ### 9. Prepare Part D run logs for a clean demonstration
 
-The Part D agent writes append-only JSONL logs and checkpoint files. If reproducing the demonstrations in an existing checkout, back up any existing logs and checkpoints first. The following commands remove previous generated agent logs and state files so the next run starts cleanly:
+The Part D agent writes append-only JSONL logs and checkpoint files. If reproducing the demonstrations in an existing checkout, back up any existing logs and checkpoints first.
+
+The following commands remove previous generated agent logs and JSON checkpoint files so the next run starts cleanly:
 
 ```cmd
 if exist outputs\agent_runs.jsonl del outputs\agent_runs.jsonl
@@ -198,7 +198,10 @@ outputs/revenue_pivot.csv
 outputs/city_summary.csv
 outputs/order_amount_distribution.csv
 outputs/correlation_matrix.csv
+outputs/rfm_table.csv
+outputs/kmeans_evaluation.csv
 outputs/customer_segments.csv
+outputs/segment_profile.csv
 outputs/lapse_cohort.csv
 outputs/lapse_features.csv
 outputs/lapse_model.joblib
@@ -207,6 +210,7 @@ outputs/triage_results.csv
 outputs/triage_zero_shot.csv
 outputs/triage_few_shot.csv
 outputs/triage_budget_demo.csv
+outputs/triage_prompt_comparison.csv
 outputs/rag_evaluation.csv
 outputs/rag_evaluation_overlap0.csv
 outputs/agent_evaluation.csv
@@ -218,7 +222,7 @@ state/checkpoint_S1_demo.json
 
 The agent evaluation and checkpoint scripts can append entries to JSONL logs. For a clean repeat of Part D, use the log-reset commands in Step 9 before running the Part D scripts.
 
-## Part A
+# Part A
 
 ### Raw data audit
 
@@ -230,7 +234,7 @@ The supplied raw datasets contain:
 | Orders | 13,084 | 9 |
 | Products | 40 | 4 |
 
-The following table records the actual raw column types and missing-value counts reported by `src/raw_data_audit.py`.
+The following tables record the raw column types and missing-value counts reported by `src/raw_data_audit.py`.
 
 #### Customers
 
@@ -384,166 +388,202 @@ The cleaned completed-order amounts have the following descriptive statistics:
 
 The distribution is strongly right-skewed. The strongest absolute correlation among the examined numeric variables was between order amount and discount percentage, at approximately **-0.095**. This is a weak association and should not be interpreted as evidence of causation.
 
-## Part B
+# Part B
 
-### RFM feature engineering
+### B1. Customer Segmentation
 
-Customer-level Recency, Frequency, and Monetary (RFM) features were constructed from the cleaned order data.
+Customer segmentation was performed using RFM (Recency, Frequency and Monetary) analysis.
 
-The resulting RFM dataset contains **1,175 customers**.
+The RFM features were calculated for each customer:
 
-| Measure | Result |
-|---|---:|
-| Median recency | 19 days |
-| Minimum recency | 0 days |
-| Maximum recency | 180 days |
-| Mean frequency | 9.46 orders |
-| Maximum frequency | 33 orders |
-| Mean monetary value | INR 2,552.06 |
-| Maximum monetary value | INR 14,766.55 |
+- **Recency:** Number of days since the customer's most recent completed order.
+- **Frequency:** Number of completed orders.
+- **Monetary:** Total spending on completed orders.
 
-### Customer segmentation
+The analysis included 1,175 customers.
 
-K-means clustering was evaluated for values of K from 2 through 8.
+K-Means clustering was evaluated for K values from 2 to 8 using silhouette scores.
 
-| K | Inertia | Silhouette score |
-|---:|---:|---:|
-| 2 | 1,820.8 | 0.465 |
-| 3 | 1,268.2 | 0.445 |
-| 4 | 743.1 | 0.526 |
-| 5 | 617.4 | 0.481 |
-| 6 | 503.2 | 0.482 |
-| 7 | 408.5 | 0.416 |
-| 8 | 366.5 | 0.412 |
+| Number of clusters (K) | Silhouette score |
+|---:|---:|
+| 2 | 0.465 |
+| 3 | 0.445 |
+| 4 | 0.526 |
+| 5 | 0.480 |
+| 6 | 0.482 |
+| 7 | 0.416 |
+| 8 | 0.412 |
 
-K=4 was selected based on the strongest silhouette score among the tested values.
+K=4 was selected because it achieved the highest silhouette score of 0.526.
 
-The resulting customer segments are:
+The resulting customer segments were:
 
 | Segment | Customers |
 |---|---:|
 | Occasional | 436 |
+| Premium | 138 |
 | Loyal | 419 |
 | At-Risk | 182 |
-| Premium | 138 |
 | **Total** | **1,175** |
 
-PCA explained-variance ratios:
+The segment profiles show different purchasing behaviours. The Premium segment had a mean monetary value of approximately INR 7,130, while the Loyal segment had a mean frequency of approximately 19.4 orders and mean recency of approximately 8.8 days.
 
-| Component | Explained variance |
+PCA was used to visualize the customer segments. The first principal component explained 63.4% of the variance, and the second explained 21.8%. Together, they explained 85.2% of the variance.
+
+**Output files:**
+
+- `outputs/rfm_table.csv`
+- `outputs/kmeans_evaluation.csv`
+- `outputs/customer_segments.csv`
+- `outputs/segment_profile.csv`
+
+### B2. Lapse Prediction
+
+The lapse prediction task identifies customers who did not place a completed order during the September 2025 label period.
+
+The cohort was constructed using customers eligible for analysis before the prediction period.
+
+| Metric | Value |
 |---|---:|
-| PC1 | 0.634 |
-| PC2 | 0.218 |
-| **Combined** | **0.852** |
+| Eligible customers | 1,156 |
+| Lapsed customers | 443 |
+| Active customers | 713 |
+| Lapse percentage | 38.32% |
 
-The first two principal components explain **85.2%** of the variance.
+The cohort validation passed successfully.
 
-### Lapse prediction
+### B3. Feature Engineering
 
-The lapse prediction task uses a temporal cohort definition:
+A feature dataset was created with 1,156 rows and 15 columns. The model features included:
 
-- Feature cutoff: **2025-09-01**.
-- Label window: **2025-09-01 through 2025-09-30**.
-- Eligible customers: **1,156**.
-- Lapsed customers: **443**.
-- Active customers: **713**.
-- Lapse rate: **38.32%**.
+- Recency
+- Frequency
+- Monetary
+- Average discount percentage
+- Cancellation rate
+- Average delivery time
+- Favourite category
+- City
+- Age
+- Gender
+- Customer tenure
 
-The model uses 11 features constructed from information available before the feature cutoff:
+The feature dataset contained no missing values in the reported feature columns.
 
-1. Recency.
-2. Frequency.
-3. Monetary value.
-4. Average discount percentage.
-5. Cancellation rate.
-6. Average delivery time.
-7. Favourite category.
-8. City.
-9. Age.
-10. Gender.
-11. Customer tenure in days.
+Features were constructed using information available before the lapse label period. The September 2025 label period was kept separate from the feature construction.
 
-The feature dataset contains 1,156 rows and has no missing values.
+**Output file:** `outputs/lapse_features.csv`
 
-The train/test split contains:
+### B4. Train-Test Split and Baseline
 
-| Split | Rows | Active | Lapsed |
-|---|---:|---:|---:|
-| Training | 924 | 570 | 354 |
-| Testing | 232 | 143 | 89 |
+The dataset was divided into training and testing sets.
 
-**Leakage controls:**
+| Dataset | Rows |
+|---|---:|
+| Training | 924 |
+| Testing | 232 |
+| **Total** | **1,156** |
 
-- Encoders, scalers, and other preprocessing steps are fitted using training data only.
-- Resampling is applied to the training data only. The test set remains unchanged.
-- Model features use information available before 2025-09-01; September label-window information is not used as a model feature.
-- Customer segment labels from the separate Part B segmentation analysis are not used as lapse-model features.
+Class distribution:
 
-### Model comparison
+| Dataset | Active | Lapsed |
+|---|---:|---:|
+| Training | 570 | 354 |
+| Testing | 143 | 89 |
 
-The baseline predicts every customer as active.
+A baseline model was evaluated before tuning.
 
 | Metric | Baseline |
 |---|---:|
-| Accuracy | 61.64% |
-| Lapse F1 | 0.0000 |
+| Accuracy | 0.6164 |
+| Lapsed-class F1 | 0.0000 |
 
-Two models were evaluated: Logistic Regression and Random Forest.
+The baseline failed to identify lapsed customers effectively, motivating the use of tuned classification models.
 
-Hyperparameter selection used five-fold cross-validation with lapse-class F1 as the selection metric.
+### B5. Preprocessing
 
-| Model | Search | Best parameters | Best CV F1 |
-|---|---|---|---:|
-| Logistic Regression | C = 0.01, 0.1, 1, 10, 100 | C = 0.1 | 0.6392 |
-| Random Forest | Depth = 3, 5, 8; leaf size = 5, 10, 20 | Depth = 3; leaf size = 5 | 0.6748 |
+Numeric and categorical features were preprocessed using a fitted preprocessing pipeline. The training and testing matrices each contained 19 features after preprocessing.
 
-Test-set performance:
+The scaler was fitted using training data only.
 
-| Model | Precision | Recall | F1 |
+| Measurement | Frequency mean |
+|---|---:|
+| Training data | 8.1158 |
+| Full cohort | 8.0285 |
+
+The difference is expected because the scaler was fitted on the training split rather than the full cohort. This avoids using test-set information when fitting preprocessing transformations.
+
+### B6. Model Tuning
+
+Two classification models were evaluated using cross-validation with the lapsed-class F1 score.
+
+**Logistic Regression**
+
+- Parameter tuned: `C`
+- Values tested: 0.01, 0.1, 1, 10, 100
+- Best parameter: `C = 0.1`
+- Best cross-validation F1: **0.6392**
+
+**Random Forest**
+
+- Number of estimators: 100
+- Random state: 42
+- Maximum depth values tested: 3, 5, 8
+- Minimum samples per leaf tested: 5, 10, 20
+- Best parameters: `max_depth = 3`, `min_samples_leaf = 5`
+- Best cross-validation F1: **0.6748**
+
+### B7. Test Set Results
+
+The tuned models were evaluated on the held-out test set.
+
+| Model | Precision | Recall | F1-score |
 |---|---:|---:|---:|
 | Logistic Regression | 0.6545 | 0.8090 | 0.7236 |
 | Random Forest | 0.6804 | 0.7416 | 0.7097 |
 
-Confusion matrices, with rows representing actual classes and columns representing predicted classes in the order active, lapsed:
+Confusion matrices:
 
 **Logistic Regression**
 
 ```text
-[[105, 38],
- [ 17, 72]]
+[[105  38]
+ [ 17  72]]
 ```
 
 **Random Forest**
 
 ```text
-[[112, 31],
- [ 23, 66]]
+[[112  31]
+ [ 23  66]]
 ```
 
-Logistic Regression was selected for its higher test-set lapse F1 and recall.
+Logistic Regression achieved the higher test F1 score of 0.7236, while Random Forest achieved higher precision of 0.6804.
 
-### Training-only oversampling
+Both models exceeded the required minimum test F1 score of 0.55.
 
-An additional Logistic Regression experiment oversampled the training data to balance the two classes.
+### B8. Oversampling
 
-| Training class | Before | After |
-|---|---:|---:|
-| Active | 570 | 570 |
-| Lapsed | 354 | 570 |
+Oversampling was applied to the training data to balance the two classes. The resulting training distribution was:
 
-The test set remained unchanged.
+| Class | Training rows after oversampling |
+|---|---:|
+| Active | 570 |
+| Lapsed | 570 |
 
-The oversampled Logistic Regression model achieved:
+The oversampled Logistic Regression model produced the following test results:
 
-| Precision | Recall | F1 |
-|---:|---:|---:|
-| 0.5915 | 0.9438 | 0.7273 |
+| Metric | Score |
+|---|---:|
+| Precision | 0.5915 |
+| Recall | 0.9438 |
+| F1-score | 0.7273 |
 
-This experiment increased lapse recall, with a corresponding reduction in precision.
+The oversampled model achieved higher recall and a slightly higher F1 score than the original Logistic Regression model, at the cost of lower precision.
 
-### Feature interpretation
+### B9. Feature Importance and Coefficients
 
-The Random Forest's leading feature importances were:
+The top five Random Forest feature importances were:
 
 | Feature | Importance |
 |---|---:|
@@ -553,115 +593,218 @@ The Random Forest's leading feature importances were:
 | Cancellation rate | 0.053057 |
 | Average discount percentage | 0.040657 |
 
-The largest positive Logistic Regression coefficients included age (0.087905), average discount percentage (0.066551), and Personal Care category (0.056385). The largest negative coefficients included frequency (-1.349948), Electronics category (-0.329451), and Delhi city (-0.321887).
+The largest positive Logistic Regression coefficients were:
 
-These coefficients describe the fitted model and do not establish causal relationships.
+| Feature | Coefficient |
+|---|---:|
+| Age | +0.087905 |
+| Average discount percentage | +0.066551 |
+| Favourite category: Personal Care | +0.056385 |
 
-### Model persistence and retention illustration
+The largest negative coefficients were:
 
-The saved model was reloaded and produced identical predictions to the original fitted model.
+| Feature | Coefficient |
+|---|---:|
+| Frequency | -1.349948 |
+| Favourite category: Electronics | -0.329451 |
+| City: Delhi | -0.321887 |
 
-A retention-prioritization illustration selected 10 customers from the Premium test cohort of 29 customers. One of those 10 customers was actually labelled as lapsed. The maximum predicted lapse probability in the selected group was 0.7170.
+Positive coefficients increase the model's predicted log-odds of lapse, while negative coefficients decrease them, holding the other model inputs constant.
 
-**Temporal limitation:** the Premium flag used for this post-hoc illustration is based on the full RFM window ending 2025-10-01, which overlaps the September label window. It is therefore an illustrative analysis, not a leakage-free prospective retention evaluation.
+### B10. Model Saving and Reload Validation
 
-## Part C
+The selected model was saved to:
 
-### Ticket preprocessing and PII redaction
+`outputs/lapse_model.joblib`
 
-The ticket pipeline processes 164 support tickets.
+The saved model was reloaded and used to generate predictions. The predictions before and after reloading were identical, confirming successful model persistence.
 
-| Measure | Count |
+### B11. Premium Customer Retention List
+
+A retention list was generated for the 10 highest predicted lapse probabilities among Premium customers in the test set.
+
+| Metric | Value |
+|---|---:|
+| Premium customers in test set | 29 |
+| Customers selected for retention list | 10 |
+| Actually lapsed among selected 10 | 1 |
+| Highest predicted lapse probability | 0.7170 |
+
+The list is saved to `outputs/retention_list.csv`.
+
+The retention list is an illustrative prioritization exercise. The Premium segment flag is derived from the full RFM window, which overlaps the September label period. Therefore, this list should not be interpreted as a fully leakage-free prospective retention evaluation.
+
+### B12. Part B Reproduction
+
+Run the following commands in order:
+
+```cmd
+python src/customer_segmentation.py
+python src/lapse_prediction.py
+```
+
+These scripts generate the RFM analysis, customer segments, lapse cohort, feature dataset, trained model, and retention list.
+
+# Part C
+
+### C1. Input Guardrails
+
+The support ticket dataset contains **164 tickets**. Tickets were processed in their original file order.
+
+Before making any model call, the pipeline applied two input checks:
+
+- Empty or whitespace-only tickets were assigned `skipped_empty`.
+- Tickets with estimated input length greater than `MAX_INPUT_TOKENS = 400` were assigned `flagged_long`.
+
+| Input guardrail metric | Result |
 |---|---:|
 | Total tickets | 164 |
-| Empty tickets | 4 |
-| Long tickets | 4 |
+| Empty tickets skipped | 4 |
+| Long tickets flagged | 4 |
 | Eligible tickets for classification | 156 |
-| Estimated input tokens | 734 |
+| Estimated tokens in long tickets | 734 |
 
-PII redaction replaces detected email addresses, phone numbers, and order IDs with placeholders.
+Empty and long tickets were not sent to the model.
 
-| PII type | Replacements |
-|---|---:|
-| Email addresses | 55 |
-| Phone numbers | 91 |
-| Order IDs | 132 |
-| **Total** | **278** |
+### C2. PII Redaction and Privacy Checks
 
-Redaction is idempotent: applying it again does not repeatedly alter already-redacted values.
+Personal information was redacted before ticket text was passed to the model.
 
-### Guardrails
+| Information | Replacement | Substitutions |
+|---|---|---:|
+| Email addresses | `[EMAIL]` | 55 |
+| Phone numbers | `[PHONE]` | 91 |
+| Order IDs | `[ORDER_ID]` | 132 |
+| **Total** | | **278** |
 
-The pipeline applies input checks before classification:
+The redacted ticket text was used as the user message sent to the model. No additional text was appended to that user message.
 
-- Empty tickets are skipped.
-- Tickets exceeding the configured 400-token length threshold are flagged as long.
-- Eligible tickets are passed to the classification workflow.
+The pipeline re-applied the redaction patterns to the redacted text and verified that no matching email addresses, phone numbers, or order IDs remained. The code also asserts that unredacted personal information does not reach the model.
 
-The empty and long-ticket guardrails account for the eight tickets outside the 156-ticket eligible classification set.
+### C3. Prompts and Output Validation
 
-### Classification comparison
+Two classification prompts were evaluated:
 
-Zero-shot and few-shot classification were evaluated on the same 147 successfully classified tickets.
+- **Zero-shot:** The model receives the classification instructions without labelled examples.
+- **Few-shot:** The model receives the classification instructions together with labelled examples.
 
-| Measure | Zero-shot | Few-shot |
+Both prompts use the `CLASSIFY` marker and restrict classification to four categories:
+
+- `billing`
+- `delivery`
+- `technical`
+- `fraud`
+
+The model is instructed to return JSON containing the classification. The pipeline validates the returned output before accepting it.
+
+Responses that cannot be parsed or validated are not silently treated as valid classifications. The pipeline uses a keyword-based fallback where applicable and records invalid outputs separately.
+
+### C4. Retry Handling
+
+The mock LLM can simulate transient failures. The pipeline retries transient errors using exponential backoff with jitter.
+
+The configured base delay is `BASE_DELAY = 0.05` seconds. The retry log records the ticket ID, retry number, and actual wait time.
+
+For the supplied mock, each transient failure is recovered on retry number 0. The expected jitter interval for that retry is **0.045–0.0575 seconds**.
+
+All **19 reference transient failures** were recovered. This makes the classification run resilient to the simulated temporary errors without requiring a real external model service.
+
+### C5. Zero-Shot and Few-Shot Results
+
+The two prompt strategies were evaluated on the classified tickets. The four empty tickets and four long tickets were excluded from model classification.
+
+| Metric | Zero-shot | Few-shot |
 |---|---:|---:|
-| Valid JSON responses | 135 | 135 |
-| Keyword responses | 12 | 12 |
-| Invalid responses | 9 | 9 |
-| Empty tickets | 4 | 4 |
-| Long tickets | 4 | 4 |
+| Tickets classified | 147 | 147 |
 | Correct classifications | 126 | 147 |
 | Accuracy | 85.71% | 100.00% |
 | Total tokens | 15,172 | 23,752 |
-| Tokens for classified tickets | 14,276 | 22,361 |
 | Average tokens per classified ticket | 97.12 | 152.12 |
 
-The few-shot approach achieved higher measured accuracy on this evaluation set, while using more tokens.
+The zero-shot run produced 135 valid JSON classifications, 12 keyword-fallback classifications, and 9 invalid outputs. Four empty tickets were skipped and four long tickets were flagged.
 
-The zero-shot confusion matrix, with class order billing, delivery, technical, fraud, is:
+The zero-shot confusion results showed that the classification errors were concentrated in the billing predictions: 11 fraud tickets and 10 technical tickets were predicted as billing.
 
-```text
-[[38,  0,  0,  0],
- [ 0, 36,  0,  0],
- [10,  0, 29,  0],
- [11,  0,  0, 23]]
-```
+The few-shot prompt correctly classified all 147 evaluated tickets in the supplied dataset. Its average token usage was higher because the prompt included labelled examples.
 
-### Token-budget experiment
+Few-shot prompting was more accurate on this evaluation dataset, while zero-shot prompting used fewer tokens per classified ticket. The additional few-shot token cost was worthwhile for this supplied evaluation because it improved accuracy from 85.71% to 100%. This result does not guarantee the same accuracy on unseen tickets.
 
-A token-budget experiment used a budget of 6,000 tokens.
+### C6. Token-Budget Demonstration
 
-| Measure | Result |
+A separate zero-shot run used `TOKEN_BUDGET = 6000`.
+
+| Metric | Result |
 |---|---:|
 | Model responses | 62 |
-| Valid JSON responses | 55 |
-| Keyword responses | 4 |
-| Invalid responses | 3 |
-| Empty tickets | 4 |
-| Long tickets | 4 |
-| Total tokens used | 6,025 |
-| Budget-exhausted outcomes | 94 |
+| JSON classifications | 55 |
+| Keyword classifications | 4 |
+| Invalid outputs | 3 |
+| Empty tickets skipped | 4 |
+| Long tickets flagged | 4 |
+| Budget-exhausted tickets | 94 |
+| Total recorded token usage | 6,025 |
 
-The total can slightly exceed the configured budget because token usage is checked after a model response. Once the limit is detected, further model work is stopped.
+The budget is checked before each model call. Consequently, the final permitted call can take the accumulated token usage slightly above the configured budget. In this run, the recorded total was 6,025 tokens.
 
-### Final routing
+Tickets not processed after budget exhaustion were marked `budget_exhausted` and routed to human review rather than being assigned an unsupported classification.
 
-The final few-shot triage output routes tickets as follows:
+### C7. Final Ticket Routing
 
-| Destination | Tickets |
+The final routing run used the few-shot prompt with `TOKEN_BUDGET = 100000`. It produced **164 rows** in `outputs/triage_results.csv`.
+
+Routing followed this decision order:
+
+1. Tickets with status `skipped_empty`, `flagged_long`, `flagged_invalid_output`, or `budget_exhausted` were sent to `human_review` with NORMAL priority.
+2. Otherwise, tickets classified as `fraud` were sent to `security_team` with HIGH priority.
+3. Otherwise, tickets belonging to Premium customers were sent to `premium_desk` with HIGH priority.
+4. All other classified tickets were sent to `support_queue` with NORMAL priority.
+
+Customer segment information was read from `outputs/customer_segments.csv`. A customer without a matching row in that file was treated as non-premium.
+
+| Route | Tickets |
 |---|---:|
-| support_queue | 102 |
-| security_team | 34 |
-| human_review | 17 |
-| premium_desk | 11 |
+| `support_queue` | 102 |
+| `security_team` | 34 |
+| `human_review` | 17 |
+| `premium_desk` | 11 |
 | **Total** | **164** |
 
-The routing workflow uses the classification and guardrail results to direct tickets to the appropriate destination. Fraud-related cases are routed to the security team, while cases requiring manual handling are sent for human review.
+The routing rules determine which team receives a ticket; they do not mean that every classification has been independently verified by a human.
 
-The supplied `mock_llm.py` is used as provided.
+- Validated model outputs are accepted only after output validation and are routed according to the category and customer segment rules.
+- Tickets with empty, long, invalid, or budget-exhausted statuses are not treated as reliable classifications and are routed to human review.
+- Fraud tickets are routed to the security team, while Premium customers' other valid classified tickets are routed to the Premium desk.
 
-## Part D
+### C8. Part C Output Files
+
+| File | Description |
+|---|---|
+| `outputs/triage_zero_shot.csv` | Zero-shot classification results |
+| `outputs/triage_few_shot.csv` | Few-shot classification results |
+| `outputs/triage_budget_demo.csv` | Zero-shot token-budget demonstration |
+| `outputs/triage_prompt_comparison.csv` | Prompt-strategy comparison |
+| `outputs/triage_results.csv` | Final few-shot classification and routing results |
+
+### C9. Reproducing Part C
+
+Run from the project root after completing Parts A and B:
+
+```cmd
+python src/ticket_triage.py
+```
+
+The pipeline uses the supplied offline `mock_llm.py` implementation. No external LLM API, API key, or network connection is required.
+
+### C10. Part C Limitations
+
+- The evaluation uses a limited dataset of 164 synthetic tickets.
+- The mock LLM does not represent the full variability of a production LLM.
+- The few-shot accuracy is measured on the supplied evaluation dataset and does not guarantee the same accuracy on unseen tickets.
+- The token-budget check occurs before each model call, so a small overrun is possible.
+- Rule-based validation and routing reduce some risks but do not replace human judgement.
+- Tickets that cannot be confidently processed are routed to human review.
+
+# Part D
 
 ### Policy RAG pipeline
 
@@ -914,7 +1057,7 @@ outputs/checkpoint_demo_ledger.jsonl
 state/checkpoint_S1_demo.json
 ```
 
-## Limitations and Next Steps
+# Limitations and Next Steps
 
 ### Limitations
 
