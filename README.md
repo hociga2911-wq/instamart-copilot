@@ -19,11 +19,11 @@ instamart-copilot/
 │   │   ├── customers.csv
 │   │   ├── orders.csv
 │   │   ├── products.csv
-│   │   ├── support_tickets.csv
+│   │   ├── tickets.csv
 │   │   └── agent_scenarios.csv
 │   └── instamart.db
 │
-├── docs/
+├── data/
 │   └── policies/
 │
 ├── outputs/
@@ -90,17 +90,14 @@ python generate_data.py
 
 The generator produces the customer, product, order, and support-ticket datasets.
 
-The supplied generator distribution does not create the Part D agent-scenario file. Generate that additional file using the project helper:
+The supplied generator creates the customer, product, order, support-ticket, and Part D agent-scenario datasets, including :
 
-```bash
-python src/generate_agent_scenarios.py
-```
-
-This creates:
 
 ```text
 data/raw/agent_scenarios.csv
 ```
+
+No separate scenario-generation command is required.
 
 ## 3. Run the pipeline
 
