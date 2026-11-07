@@ -1,49 +1,36 @@
 # Overview
 
-This project builds an end-to-end Instamart analytics and support automation pipeline across four parts:
+This project implements an end-to-end Instamart customer analytics and support copilot across four parts:
 
-- **Part A – Data cleaning and SQL analysis:** audit and clean the supplied customer, order, and product data; load it into SQLite; and answer business questions using SQL and pandas.
-- **Part B – Customer analytics and lapse prediction:** construct RFM features, segment customers, and train and evaluate models to predict customer lapse.
-- **Part C – Support ticket triage:** redact personally identifiable information (PII), apply input guardrails, classify support tickets, and route them to the appropriate teams.
-- **Part D – Policy RAG and tool-using agent:** retrieve policy information with a retrieval-augmented generation (RAG) pipeline and implement a bounded agent for order lookup and refund workflows.
+- **Part A – Data cleaning and SQL analysis:** audit and clean customer, order, and product data; create a SQLite database; and perform SQL and pandas analysis.
+- **Part B – Customer analytics and lapse prediction:** build RFM features, segment customers, and train models to predict customer lapse.
+- **Part C – Support ticket triage:** redact personally identifiable information (PII), apply input guardrails, classify support tickets, and route them to appropriate teams.
+- **Part D – Policy RAG and tool-using agent:** retrieve policy information and implement a bounded tool-using agent for order lookup, refund decisions, escalation, and checkpoint recovery.
 
-The project uses Python, pandas, SQLite, scikit-learn, TF-IDF retrieval, and the supplied mock language-model interface. The workflow is designed to be reproducible, with intermediate datasets, evaluation results, and audit outputs saved in the repository.
+The project uses Python, pandas, SQLite, scikit-learn, TF-IDF retrieval, and the supplied mock language-model interface.
+
+The supplied `generate_data.py` and `mock_llm.py` are included at the repository root and are used without modification.
 
 ## Repository structure
 
 ```text
 instamart-copilot/
-│
 ├── data/
 │   ├── raw/
-│   │   ├── customers.csv
-│   │   ├── orders.csv
-│   │   ├── products.csv
-│   │   ├── tickets.csv
-│   │   └── agent_scenarios.csv
+│   ├── clean/
+│   ├── policies/
 │   └── instamart.db
-│
-├── data/
-│   └── policies/
-│
 ├── outputs/
-│   ├── customers_audit.csv
-│   ├── orders_audit.csv
-│   ├── products_audit.csv
-│   ├── rag_evaluation.csv
-│   ├── rag_evaluation_overlap0.csv
-│   ├── agent_evaluation.csv
-│   ├── agent_runs.jsonl
-│   ├── refund_ledger.jsonl
-│   └── checkpoint_demo_ledger.jsonl
-│
 ├── sql/
 │   ├── queries.sql
 │   └── analysis_queries.sql
-│
 ├── src/
 │   ├── clean_data.py
+│   ├── raw_data_audit.py
 │   ├── validate_cleaning.py
+│   ├── create_database.py
+│   ├── run_sql.py
+│   ├── pandas_analysis.py
 │   ├── customer_segmentation.py
 │   ├── lapse_prediction.py
 │   ├── ticket_triage.py
@@ -51,11 +38,9 @@ instamart-copilot/
 │   ├── rag_overlap_comparison.py
 │   ├── agent_tools.py
 │   ├── agent.py
-│   ├── generate_agent_scenarios.py
 │   ├── run_agent_evaluation.py
 │   ├── run_agent_limit_demos.py
 │   └── run_checkpoint_demo.py
-│
 ├── state/
 ├── generate_data.py
 ├── mock_llm.py
@@ -64,34 +49,38 @@ instamart-copilot/
 └── README.md
 ```
 
-# Reproduce
+Generated CSV files, evaluation results, model files, logs, and checkpoints are stored in `data/`, `outputs/`, and `state/`.
 
-## 1. Set up the environment
+## Reproduce
 
-Use Python and a Windows command prompt or an equivalent terminal.
+The following commands are written for Windows Command Prompt. Run them from the repository root, in the order shown.
 
-```bash
-git clone <YOUR_PUBLIC_REPOSITORY_URL>
+### 1. Clone the repository and set up Python
+
+Replace the repository URL below with the public GitHub repository URL.
+
+```cmd
+git clone https://github.com/hociga2911-wq/instamart-copilot.git
 cd instamart-copilot
 
 python -m venv .venv
 .venv\Scripts\activate
 
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## 2. Generate the supplied datasets
+### 2. Generate the raw datasets
 
-Run the supplied generator without modifying it:
+Run the supplied data generator:
 
-```bash
+```cmd
 python generate_data.py
 ```
 
-The generator produces the customer, product, order, and support-ticket datasets.
+The generator creates the raw customer, product, order, support-ticket, and Part D agent-scenario datasets. It also provides the policy and evaluation input files used by the project.
 
-The supplied generator creates the customer, product, order, support-ticket, and Part D agent-scenario datasets, including :
-
+The Part D scenario file is generated at:
 
 ```text
 data/raw/agent_scenarios.csv
@@ -99,31 +88,83 @@ data/raw/agent_scenarios.csv
 
 No separate scenario-generation command is required.
 
-## 3. Run the pipeline
+### 3. Run the raw data audit
 
-### Part A – Cleaning and validation
+```cmd
+python src/raw_data_audit.py
+```
 
-```bash
+This reports the raw dataset shapes, column data types, missing values, and additional customer and order data-quality checks. Audit summaries are saved under `outputs/`.
+
+### 4. Run Part A cleaning and validation
+
+```cmd
 python src/clean_data.py
 python src/validate_cleaning.py
 ```
 
-### Part B – Customer segmentation and lapse prediction
+The cleaning script creates the cleaned datasets under `data/clean/`. The validation script checks the cleaned customer, product, and order data.
 
-```bash
+### 5. Create the SQLite database
+
+```cmd
+python src/create_database.py
+```
+
+The database is created at:
+
+```text
+data/instamart.db
+```
+
+### 6. Run SQL and pandas analysis
+
+```cmd
+python src/run_sql.py
+python src/pandas_analysis.py
+```
+
+The SQL runner executes the seven queries in `sql/queries.sql`. The pandas analysis creates summary and distribution outputs under `outputs/`.
+
+The additional SQL analysis file is:
+
+```text
+sql/analysis_queries.sql
+```
+
+### 7. Run Part B customer segmentation and lapse prediction
+
+```cmd
 python src/customer_segmentation.py
 python src/lapse_prediction.py
 ```
 
-### Part C – Ticket triage
+These scripts create the RFM table, customer segments, lapse cohort and features, fitted model, and retention illustration.
 
-```bash
+### 8. Run Part C ticket triage
+
+```cmd
 python src/ticket_triage.py
 ```
 
-### Part D – RAG and agent evaluation
+This script performs PII redaction, input guardrails, zero-shot and few-shot classification, token-budget evaluation, and final ticket routing.
 
-```bash
+### 9. Prepare Part D run logs for a clean demonstration
+
+The Part D agent writes append-only JSONL logs and checkpoint files. If reproducing the demonstrations in an existing checkout, back up any existing logs and checkpoints first. The following commands remove previous generated agent logs and state files so the next run starts cleanly:
+
+```cmd
+if exist outputs\agent_runs.jsonl del outputs\agent_runs.jsonl
+if exist outputs\refund_ledger.jsonl del outputs\refund_ledger.jsonl
+if exist outputs\checkpoint_demo_ledger.jsonl del outputs\checkpoint_demo_ledger.jsonl
+if exist state\*.json del state\*.json
+```
+
+These commands remove only the listed generated agent logs and JSON checkpoint files. Do not run them if you need to preserve earlier execution records.
+
+### 10. Run Part D RAG and agent evaluations
+
+```cmd
 python src/rag_policy.py
 python src/rag_overlap_comparison.py
 python src/run_agent_evaluation.py
@@ -131,13 +172,57 @@ python src/run_agent_limit_demos.py
 python src/run_checkpoint_demo.py
 ```
 
-The Part D agent workflows write run records, checkpoints, and refund-related audit entries. For a fresh reproduction, use a fresh checkout or clear the generated run state and ledgers before running the demonstrations. Do not append a second run to an existing ledger and then interpret the combined file as a single evaluation.
+The scripts generate RAG evaluation results, agent scenario results, execution logs, refund ledgers, and checkpoint demonstrations.
 
-# Part A
+The checkpoint demonstration uses the run ID `checkpoint_S1_demo`. It simulates an interruption and resumes from the saved state.
 
-## Data audit
+### 11. Verify the generated outputs
 
-The initial datasets contained:
+After the pipeline completes, inspect the generated files under:
+
+```text
+data/clean/
+data/instamart.db
+outputs/
+state/
+```
+
+Important outputs include:
+
+```text
+outputs/customers_audit.csv
+outputs/orders_audit.csv
+outputs/products_audit.csv
+outputs/sql_results.txt
+outputs/revenue_pivot.csv
+outputs/city_summary.csv
+outputs/order_amount_distribution.csv
+outputs/correlation_matrix.csv
+outputs/customer_segments.csv
+outputs/lapse_cohort.csv
+outputs/lapse_features.csv
+outputs/lapse_model.joblib
+outputs/retention_list.csv
+outputs/triage_results.csv
+outputs/triage_zero_shot.csv
+outputs/triage_few_shot.csv
+outputs/triage_budget_demo.csv
+outputs/rag_evaluation.csv
+outputs/rag_evaluation_overlap0.csv
+outputs/agent_evaluation.csv
+outputs/agent_runs.jsonl
+outputs/refund_ledger.jsonl
+outputs/checkpoint_demo_ledger.jsonl
+state/checkpoint_S1_demo.json
+```
+
+The agent evaluation and checkpoint scripts can append entries to JSONL logs. For a clean repeat of Part D, use the log-reset commands in Step 9 before running the Part D scripts.
+
+## Part A
+
+### Raw data audit
+
+The supplied raw datasets contain:
 
 | Dataset | Rows | Columns |
 |---|---:|---:|
@@ -145,50 +230,81 @@ The initial datasets contained:
 | Orders | 13,084 | 9 |
 | Products | 40 | 4 |
 
-The audit recorded the following missing values:
+The following table records the actual raw column types and missing-value counts reported by `src/raw_data_audit.py`.
 
-### Customers
+#### Customers
 
-| Column | Missing count | Missing % |
-|---|---:|---:|
-| customer_id | 0 | 0.00% |
-| city | 0 | 0.00% |
-| signup_date | 0 | 0.00% |
-| age | 61 | 5.08% |
-| gender | 30 | 2.50% |
+| Column | Raw dtype | Missing rows | Missing % |
+|---|---|---:|---:|
+| customer_id | str | 0 | 0.00% |
+| city | str | 0 | 0.00% |
+| signup_date | str | 0 | 0.00% |
+| age | float64 | 61 | 5.08% |
+| gender | str | 30 | 2.50% |
 
-### Products
+#### Orders
 
-All four product columns had zero missing values.
+| Column | Raw dtype | Missing rows | Missing % |
+|---|---|---:|---:|
+| order_id | str | 0 | 0.00% |
+| customer_id | str | 0 | 0.00% |
+| product_id | str | 0 | 0.00% |
+| quantity | int64 | 0 | 0.00% |
+| order_ts | str | 0 | 0.00% |
+| status | str | 0 | 0.00% |
+| discount_pct | int64 | 0 | 0.00% |
+| order_amount | str | 53 | 0.41% |
+| delivery_minutes | float64 | 2,541 | 19.42% |
 
-### Orders
+#### Products
 
-| Column | Missing count | Missing % |
-|---|---:|---:|
-| order_id | 0 | 0.00% |
-| customer_id | 0 | 0.00% |
-| product_id | 0 | 0.00% |
-| quantity | 0 | 0.00% |
-| order_ts | 0 | 0.00% |
-| status | 0 | 0.00% |
-| discount_pct | 0 | 0.00% |
-| order_amount | 53 | 0.41% |
-| delivery_minutes | 2,541 | 19.42% |
+| Column | Raw dtype | Missing rows | Missing % |
+|---|---|---:|---:|
+| product_id | str | 0 | 0.00% |
+| product_name | str | 0 | 0.00% |
+| category | str | 0 | 0.00% |
+| price_inr | int64 | 0 | 0.00% |
 
-Additional data-quality checks identified inconsistent city and gender spellings, invalid age values, duplicate order records, repeated order-status snapshots, non-numeric amounts, negative delivery times, and pending orders.
+### Additional raw data-quality checks
 
-## Cleaning decisions
+#### Customer checks
+
+| Check | Result |
+|---|---:|
+| Blank ages | 61 |
+| Ages outside 10–100, including blanks | 67 |
+| Nonblank invalid ages outside 10–100 | 6 |
+| Distinct raw city spellings | 24 |
+| Distinct nonblank raw gender spellings | 10 |
+| Blank genders | 30 |
+
+The 67 ages outside the valid range include the 61 missing ages. Therefore, six nonblank age values are outside the 10–100 range.
+
+#### Order checks
+
+| Check | Result |
+|---|---:|
+| Exact duplicate rows | 119 |
+| Pending rows | 656 |
+| Distinct order IDs | 12,309 |
+| Order amounts not convertible to numeric, including missing values | 120 |
+| Negative delivery times | 106 |
+| Blank delivery times | 2,541 |
+
+The 120 non-convertible order amounts include the 53 missing values shown in the column-level audit.
+
+### Cleaning decisions
 
 The cleaning pipeline applies the following rules:
 
-- Standardizes city names and inconsistent spellings.
-- Normalizes gender values to the supported categories `male`, `female`, and `unknown`.
+- Standardizes inconsistent city names and spellings.
+- Normalizes gender values to `male`, `female`, and `unknown`.
 - Converts invalid ages to missing values and imputes missing ages using the median age for the corresponding city.
-- Converts signup dates and order timestamps to appropriate date/time representations.
-- Removes 119 duplicate order rows.
+- Converts signup dates and order timestamps to date/time representations.
+- Removes 119 exact duplicate order rows.
 - Keeps the latest timestamped record for each order when multiple status snapshots exist.
 - Converts order amounts to numeric values.
-- Repairs missing or non-numeric order amounts using the order calculation based on product price, quantity, and discount percentage:
+- Repairs missing or non-numeric order amounts using product price, quantity, and discount percentage:
 
   `price_inr × quantity × (1 - discount_pct / 100)`
 
@@ -197,7 +313,7 @@ The cleaning pipeline applies the following rules:
 - Leaves delivery times for cancelled orders missing.
 - Excludes older pending snapshots when constructing the final order-level dataset.
 
-## Cleaning results
+### Cleaning results
 
 | Measure | Result |
 |---|---:|
@@ -214,9 +330,9 @@ The cleaning pipeline applies the following rules:
 
 The final cleaned order dataset contains 12,309 unique orders. Total completed-order revenue is **INR 2,998,668.80**.
 
-The cleaning validation script passed all **21 validation checkpoints**.
+The cleaning validation script passed all **21 validation checkpoints** in the recorded run.
 
-## SQLite and SQL analysis
+### SQLite and SQL analysis
 
 The cleaned data is stored in:
 
@@ -224,14 +340,14 @@ The cleaned data is stored in:
 data/instamart.db
 ```
 
-The SQL analysis is available in:
+The SQL files are:
 
 ```text
 sql/queries.sql
 sql/analysis_queries.sql
 ```
 
-The queries cover:
+The seven queries executed by `src/run_sql.py` cover:
 
 - High-value orders.
 - Revenue by city and product category.
@@ -241,7 +357,7 @@ The queries cover:
 - Ranking and window-function analyses.
 - Daily revenue and cumulative revenue.
 
-Key query results include:
+Key query results:
 
 | Analysis | Result |
 |---|---:|
@@ -252,25 +368,25 @@ Key query results include:
 | Daily revenue records | 183 |
 | Final cumulative revenue | INR 2,998,668.80 |
 
-## Pandas analysis
+### Pandas analysis
 
-The cleaned order amounts have the following descriptive statistics:
+The cleaned completed-order amounts have the following descriptive statistics:
 
-| Statistic | Value (INR) |
+| Statistic | Value |
 |---|---:|
-| Mean | 269.91 |
-| Median | 135.00 |
-| First quartile | 64.80 |
-| Third quartile | 297.00 |
+| Mean order amount | INR 269.91 |
+| Median order amount | INR 135.00 |
+| First quartile | INR 64.80 |
+| Third quartile | INR 297.00 |
 | Skewness | 4.61 |
-| Upper IQR outlier fence | 645.30 |
+| Upper IQR outlier fence | INR 645.30 |
 | Values above the upper fence | 897 |
 
 The distribution is strongly right-skewed. The strongest absolute correlation among the examined numeric variables was between order amount and discount percentage, at approximately **-0.095**. This is a weak association and should not be interpreted as evidence of causation.
 
-# Part B
+## Part B
 
-## RFM feature engineering
+### RFM feature engineering
 
 Customer-level Recency, Frequency, and Monetary (RFM) features were constructed from the cleaned order data.
 
@@ -286,7 +402,7 @@ The resulting RFM dataset contains **1,175 customers**.
 | Mean monetary value | INR 2,552.06 |
 | Maximum monetary value | INR 14,766.55 |
 
-## Customer segmentation
+### Customer segmentation
 
 K-means clustering was evaluated for values of K from 2 through 8.
 
@@ -312,7 +428,7 @@ The resulting customer segments are:
 | Premium | 138 |
 | **Total** | **1,175** |
 
-PCA explained-variance ratios were:
+PCA explained-variance ratios:
 
 | Component | Explained variance |
 |---|---:|
@@ -322,7 +438,7 @@ PCA explained-variance ratios were:
 
 The first two principal components explain **85.2%** of the variance.
 
-## Lapse prediction
+### Lapse prediction
 
 The lapse prediction task uses a temporal cohort definition:
 
@@ -356,11 +472,16 @@ The train/test split contains:
 | Training | 924 | 570 | 354 |
 | Testing | 232 | 143 | 89 |
 
-Preprocessing is fitted on the training data only. The test set is not used to fit preprocessing or perform resampling.
+**Leakage controls:**
 
-## Model comparison
+- Encoders, scalers, and other preprocessing steps are fitted using training data only.
+- Resampling is applied to the training data only. The test set remains unchanged.
+- Model features use information available before 2025-09-01; September label-window information is not used as a model feature.
+- Customer segment labels from the separate Part B segmentation analysis are not used as lapse-model features.
 
-The baseline predicts every customer as active:
+### Model comparison
+
+The baseline predicts every customer as active.
 
 | Metric | Baseline |
 |---|---:|
@@ -401,7 +522,7 @@ Confusion matrices, with rows representing actual classes and columns representi
 
 Logistic Regression was selected for its higher test-set lapse F1 and recall.
 
-## Training-only oversampling
+### Training-only oversampling
 
 An additional Logistic Regression experiment oversampled the training data to balance the two classes.
 
@@ -420,7 +541,7 @@ The oversampled Logistic Regression model achieved:
 
 This experiment increased lapse recall, with a corresponding reduction in precision.
 
-## Feature interpretation
+### Feature interpretation
 
 The Random Forest's leading feature importances were:
 
@@ -436,7 +557,7 @@ The largest positive Logistic Regression coefficients included age (0.087905), a
 
 These coefficients describe the fitted model and do not establish causal relationships.
 
-## Model persistence and retention illustration
+### Model persistence and retention illustration
 
 The saved model was reloaded and produced identical predictions to the original fitted model.
 
@@ -444,9 +565,9 @@ A retention-prioritization illustration selected 10 customers from the Premium t
 
 **Temporal limitation:** the Premium flag used for this post-hoc illustration is based on the full RFM window ending 2025-10-01, which overlaps the September label window. It is therefore an illustrative analysis, not a leakage-free prospective retention evaluation.
 
-# Part C
+## Part C
 
-## Ticket preprocessing and PII redaction
+### Ticket preprocessing and PII redaction
 
 The ticket pipeline processes 164 support tickets.
 
@@ -469,7 +590,7 @@ PII redaction replaces detected email addresses, phone numbers, and order IDs wi
 
 Redaction is idempotent: applying it again does not repeatedly alter already-redacted values.
 
-## Guardrails
+### Guardrails
 
 The pipeline applies input checks before classification:
 
@@ -479,7 +600,7 @@ The pipeline applies input checks before classification:
 
 The empty and long-ticket guardrails account for the eight tickets outside the 156-ticket eligible classification set.
 
-## Classification comparison
+### Classification comparison
 
 Zero-shot and few-shot classification were evaluated on the same 147 successfully classified tickets.
 
@@ -507,7 +628,7 @@ The zero-shot confusion matrix, with class order billing, delivery, technical, f
  [11,  0,  0, 23]]
 ```
 
-## Token-budget experiment
+### Token-budget experiment
 
 A token-budget experiment used a budget of 6,000 tokens.
 
@@ -524,7 +645,7 @@ A token-budget experiment used a budget of 6,000 tokens.
 
 The total can slightly exceed the configured budget because token usage is checked after a model response. Once the limit is detected, further model work is stopped.
 
-## Final routing
+### Final routing
 
 The final few-shot triage output routes tickets as follows:
 
@@ -540,9 +661,9 @@ The routing workflow uses the classification and guardrail results to direct tic
 
 The supplied `mock_llm.py` is used as provided.
 
-# Part D
+## Part D
 
-## Policy RAG pipeline
+### Policy RAG pipeline
 
 The policy RAG implementation is in:
 
@@ -594,7 +715,7 @@ Results are saved in:
 outputs/rag_evaluation.csv
 ```
 
-## Chunk-overlap comparison
+### Chunk-overlap comparison
 
 A separate experiment disables chunk overlap while keeping the retrieval evaluation questions and top-K setting unchanged.
 
@@ -610,7 +731,7 @@ With zero overlap, the following boundary-sensitive facts were not preserved in 
 - The delivery-time threshold of more than 45 minutes for a full refund.
 - The 48-hour return period when a payment fails but money is deducted.
 
-The overlap comparison therefore shows that document retrieval alone does not guarantee that the answer contains the required fact. In this evaluation, overlap preserved useful boundary context and improved expected-fact accuracy from 10/12 to 12/12.
+The overlap comparison shows that document retrieval alone does not guarantee that the answer contains the required fact. In this evaluation, overlap preserved useful boundary context and improved expected-fact accuracy from 10/12 to 12/12.
 
 Results are saved in:
 
@@ -618,7 +739,7 @@ Results are saved in:
 outputs/rag_evaluation_overlap0.csv
 ```
 
-## Tool definitions
+### Tool definitions
 
 The agent implementation uses five tools defined in:
 
@@ -648,7 +769,7 @@ The agent checks order status before allowing a refund. The implemented refund r
 
 The refund tool also enforces the INR 1,000 automatic-approval limit, and the escalation tool checks that the amount is above that limit.
 
-## Agent execution and safety limits
+### Agent execution and safety limits
 
 The agent implementation is in:
 
@@ -674,7 +795,7 @@ The agent also returns explicit fallback outcomes when an execution limit is rea
 
 The refund ledger records refund or escalation actions as JSONL entries. Checkpoint state is saved under `state/`.
 
-## Seven-scenario agent evaluation
+### Seven-scenario agent evaluation
 
 The evaluation script is:
 
@@ -682,7 +803,7 @@ The evaluation script is:
 src/run_agent_evaluation.py
 ```
 
-All seven scenarios passed.
+All seven recorded scenarios passed.
 
 | Scenario | Expected outcome | Actual outcome | Refund amount (INR) | Model calls | Tokens |
 |---|---|---|---:|---:|---:|
@@ -709,7 +830,7 @@ The evaluation results are saved in:
 outputs/agent_evaluation.csv
 ```
 
-## Token and timeout demonstrations
+### Token and timeout demonstrations
 
 The limit demonstration script is:
 
@@ -721,9 +842,9 @@ The token-limit demonstration returns `FALLBACK_TOKEN_LIMIT`. In the recorded de
 
 The timeout demonstration returns `FALLBACK_TIMEOUT`. It used zero model calls and zero tokens because the time limit was reached before model execution.
 
-These demonstrations verify that the agent can stop and hand off rather than continue an execution after reaching its configured limits.
+These demonstrations verify that the agent can stop rather than continue execution after reaching its configured limits.
 
-## Checkpoint and resume demonstration
+### Checkpoint and resume demonstration
 
 The checkpoint demonstration script is:
 
@@ -762,15 +883,23 @@ The completed workflow does not repeat the already-recorded tool executions afte
 outputs/checkpoint_demo_ledger.jsonl
 ```
 
-## ReAct versus plan-and-execute
+### ReAct versus plan-and-execute
 
 The implementation uses a ReAct-style loop: the model selects a tool, observes its result, and then decides the next step. This supports dynamic handling of different order states and policy outcomes.
 
-The observed evaluation workflows used different numbers of model calls: S1 used five calls, S5 used three, and S6 used two. A missing order can therefore terminate after a short lookup path, while a refund requires policy retrieval, eligibility calculation, and an appropriate action.
+The recorded evaluation workflows show that execution length varies by scenario:
 
-A plan-and-execute approach could make multi-step workflows more predictable, but a fixed plan may perform unnecessary steps for simple cases or require additional handling when an order is missing or cancelled. For this tool-driven workflow, the ReAct-style design is suitable because it responds to tool observations while remaining bounded by iteration, token, and time limits.
+| Scenario | Outcome | Model calls | Tokens |
+|---|---|---:|---:|
+| S1 | REFUND | 5 | 1,522 |
+| S5 | DENIED | 3 | 674 |
+| S6 | NOT_FOUND | 2 | 302 |
 
-## Part D output files
+A missing order can terminate after a short lookup path, while a refund requires policy retrieval, eligibility calculation, and an appropriate action.
+
+A plan-and-execute approach could create a plan before executing tools. That may add an initial planning call and tokens, including for simple cases that terminate early. It may also need replanning when an order is missing, cancelled, or produces an unexpected tool observation. No separate plan-and-execute implementation was benchmarked in this project, so there are no measured plan-and-execute call or token counts to compare. The ReAct-style approach was selected because it responds to tool observations while remaining bounded by iteration, token, and time limits.
+
+### Part D output files
 
 Important Part D artifacts include:
 
@@ -785,27 +914,27 @@ outputs/checkpoint_demo_ledger.jsonl
 state/checkpoint_S1_demo.json
 ```
 
-# Limitations and Next Steps
+## Limitations and Next Steps
 
-## Limitations
+### Limitations
 
 - The project uses generated datasets and a supplied mock LLM interface; results do not establish production performance.
-- The customer segmentation and lapse prediction results depend on the generated data and selected cohort definition.
+- Customer segmentation and lapse prediction results depend on the generated data and selected cohort definition.
 - The Premium retention illustration is post-hoc because its segment flag uses an RFM window that overlaps the lapse label window. It should not be treated as a prospective evaluation.
 - Few-shot ticket classification performed better on the measured evaluation set but used more tokens than zero-shot classification.
 - The token-budget experiment can exceed the configured limit slightly because usage is checked after a model response.
-- TF-IDF retrieval is lexical and may not retrieve semantically related passages as effectively as a more advanced embedding-based retriever.
+- TF-IDF retrieval is lexical and may not retrieve semantically related passages as effectively as an embedding-based retriever.
 - RAG answer quality depends on chunk boundaries and context completeness. The zero-overlap comparison demonstrates that a relevant document can be retrieved while a required fact is still omitted from the answer.
 - The agent uses a mock model and local data. Its refund and escalation actions are demonstrations, not integrations with a real payment provider or customer account system.
 - The JSONL refund ledger is an append-only demonstration log. Re-running action workflows against an existing ledger can add more entries, so evaluation runs should use a clean state when reproducibility is required.
-- The scenario generator is a separate helper because the supplied data generator does not create the agent-scenario file.
+- The ReAct workflow was implemented and evaluated; a separate plan-and-execute implementation was not built or benchmarked.
 
-## Next steps
+### Next steps
 
-- Evaluate the analytics and prediction pipelines on additional, independently generated or real-world-approved datasets.
+- Evaluate the analytics and prediction pipelines on additional, independently generated or approved real-world datasets.
 - Validate lapse prediction on later time periods to measure temporal generalization.
 - Improve retention evaluation by defining customer segments strictly from information available before the prediction cutoff.
-- Explore richer text representations and retrieval methods, while retaining the current retrieval and answer-quality checks.
+- Explore richer text representations and retrieval methods while retaining retrieval and answer-quality checks.
 - Add more policy questions that test boundary conditions, conflicting evidence, and unanswerable requests.
 - Extend agent tests to cover additional order states, tool failures, and interrupted executions.
 - Add stronger operational controls before connecting any real refund or payment system, including authorization, human approval, idempotency, and audit review.
