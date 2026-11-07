@@ -1,7 +1,6 @@
 
 import csv
 import json
-import re
 import sys
 from pathlib import Path
 
@@ -24,8 +23,8 @@ results = []
 for scenario in scenarios:
     scenario_id = scenario["scenario_id"]
 
-    # Use a fresh run ID. Run this evaluation script only once;
-    # running it again may append duplicate simulated ledger entries.
+    # Use a fresh run ID. Run this evaluation script only once
+    # after resetting the Part D logs and state.
     run_id = f"evaluation_final_{scenario_id}"
 
     result = run_agent(
@@ -47,19 +46,19 @@ for scenario in scenarios:
 
     actual_refund = 0.0
 
-# Read the amount from the actual tool observation.
-steps = result["steps"]
+    # Read the amount from the actual tool observation.
+    steps = result["steps"]
 
-for step in steps:
-    observation = step.get("observation", {})
+    for step in steps:
+        observation = step.get("observation", {})
 
-    if step.get("tool") in (
-        "issue_refund",
-        "escalate_to_human"
-    ):
-        actual_refund = float(
-            observation.get("refund_inr", 0.0)
-        )
+        if step.get("tool") in (
+            "issue_refund",
+            "escalate_to_human"
+        ):
+            actual_refund = float(
+                observation.get("refund_inr", 0.0)
+            )
 
     refund_match = abs(actual_refund - expected_refund) <= 0.01
     passed = status_match and refund_match
