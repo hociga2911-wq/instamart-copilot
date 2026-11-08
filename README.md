@@ -76,16 +76,25 @@ Run the supplied data generator:
 python generate_data.py
 ```
 
-The generator creates the raw customer, product, order, support-ticket, and Part D agent-scenario datasets. It also provides the policy and evaluation input files used by the project.
+The generator creates the raw customer, product, order, and support-ticket datasets. It also provides the policy and evaluation input files used by the project.
 
-The Part D scenario file is generated at:
+### Generate Part D Agent Scenarios
+
+Run the separate scenario-generation script:
+
+```bash
+python src/generate_agent_scenarios.py
+```
+
+This generates the Part D agent evaluation scenarios.
+
+The generated file is:
 
 ```text
 data/raw/agent_scenarios.csv
 ```
 
-No separate scenario-generation command is required.
-
+These scenarios are used to evaluate the customer support AI agent.
 ### 3. Run the raw data audit
 
 ```cmd
