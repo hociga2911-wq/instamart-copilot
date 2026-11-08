@@ -32,6 +32,7 @@ instamart-copilot/
 │   ├── run_sql.py
 │   ├── pandas_analysis.py
 │   ├── customer_segmentation.py
+│   ├── generate_agent_scenarios.py
 │   ├── lapse_prediction.py
 │   ├── ticket_triage.py
 │   ├── rag_policy.py
@@ -714,7 +715,7 @@ The mock LLM can simulate transient failures. The pipeline retries transient err
 
 The configured base delay is `BASE_DELAY = 0.05` seconds. The retry log records the ticket ID, retry number, and actual wait time.
 
-For the supplied mock, each transient failure is recovered on retry number 0. The expected jitter interval for that retry is **0.045–0.0575 seconds**.
+For the supplied mock, each transient failure is recovered on the first retry (recorded as retry number 0 in the log). The expected jitter interval for that retry is **0.045–0.0575 seconds**.
 
 All **19 reference transient failures** were recovered. This makes the classification run resilient to the simulated temporary errors without requiring a real external model service.
 
@@ -730,7 +731,7 @@ The two prompt strategies were evaluated on the classified tickets. The four emp
 | Total tokens | 15,172 | 23,752 |
 | Average tokens per classified ticket | 97.12 | 152.12 |
 
-The zero-shot run produced 135 valid JSON classifications, 12 keyword-fallback classifications, and 9 invalid outputs. Four empty tickets were skipped and four long tickets were flagged.
+The zero-shot run produced 135 valid JSON classifications, 12 keyword-fallback classifications, and 9 invalid outputs. Of the 156 eligible tickets, 147 received accepted classifications (135 valid JSON and 12 keyword-based fallbacks); the remaining 9 produced invalid outputs. Four empty tickets were skipped and four long tickets were flagged.
 
 The zero-shot confusion results showed that the classification errors were concentrated in the billing predictions: 11 fraud tickets and 10 technical tickets were predicted as billing.
 
